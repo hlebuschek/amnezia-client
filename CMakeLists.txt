@@ -38,7 +38,9 @@ if(APPLE)
     elseif(MACOS_NE)
         set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
     else()
-        set(CMAKE_OSX_ARCHITECTURES "x86_64")
+        # Universal binary: runs natively on Intel (x86_64) and Apple Silicon (arm64).
+        # macos.cmake overrides this with the same value for clarity.
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
     endif()
 endif()
 

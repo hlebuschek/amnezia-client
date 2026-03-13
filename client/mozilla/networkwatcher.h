@@ -34,6 +34,9 @@ public:
 signals:
     void networkChanged();
     void wakeup();
+    // Fires just before the system goes to sleep — used to deactivate the VPN
+    // tunnel cleanly so state is not stale on wake.
+    void sleeping();
 
 private:
     void settingsChanged();

@@ -50,6 +50,10 @@ public slots:
 
     void onKillSwitchModeChanged(bool enabled);
     void disconnectSlots();
+    // Called when the system wakes from sleep. Performs a full reconnect if the
+    // VPN was active before sleep, regardless of the current connection state
+    // (which may be Disconnected because the tunnel was torn down during sleep).
+    void onWakeFromSleep();
 
 signals:
     void bytesChanged(quint64 receivedBytes, quint64 sentBytes);
@@ -72,6 +76,16 @@ private:
     QJsonObject m_vpnConfiguration;
     QJsonObject m_routeMode;
     QString m_remoteAddress;
+
+    // Saved to allow reconnecting after sleep/wake without going through the
+    // full UI flow again.
+    int m_serverIndex = -1;
+    ServerCredentials m_savedCredentials;
+    DockerContainer m_savedContainer = DockerContainer::None;
+    // True while the VPN should be connected. Set to false only when the user
+    // explicitly disconnects. Used by onWakeFromSleep() to decide whether to
+    // reconnect automatically.
+    bool m_reconnectOnWakeup = false;
 
     // Only for iOS for now, check counters
     QTimer m_checkTimer;

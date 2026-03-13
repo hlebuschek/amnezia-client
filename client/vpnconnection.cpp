@@ -227,6 +227,13 @@ void VpnConnection::connectToVpn(int serverIndex, const ServerCredentials &crede
                         .arg(ContainerProps::containerToString(container))
              << m_settings->routeMode();
 
+    // Save parameters so onWakeFromSleep() can reconnect without going through
+    // the UI flow.
+    m_serverIndex = serverIndex;
+    m_savedCredentials = credentials;
+    m_savedContainer = container;
+    m_reconnectOnWakeup = true;
+
     m_remoteAddress = NetworkUtilities::getIPAddress(credentials.hostName);
     setConnectionState(Vpn::ConnectionState::Connecting);
 
@@ -279,7 +286,10 @@ void VpnConnection::createProtocolConnections()
 #ifdef AMNEZIA_DESKTOP
     IpcClient::withInterface([this](QSharedPointer<IpcInterfaceReplica> rep) {
         connect(rep.data(), &IpcInterfaceReplica::networkChanged, this, &VpnConnection::reconnectToVpn, Qt::QueuedConnection);
-        connect(rep.data(), &IpcInterfaceReplica::wakeup, this, &VpnConnection::reconnectToVpn, Qt::QueuedConnection);
+        // Use onWakeFromSleep instead of reconnectToVpn: the latter requires
+        // ConnectionState::Connected, but after sleep the tunnel may have been
+        // torn down (state == Disconnected) before the wakeup signal arrives.
+        connect(rep.data(), &IpcInterfaceReplica::wakeup, this, &VpnConnection::onWakeFromSleep, Qt::QueuedConnection);
     });
 #endif
 }
@@ -446,6 +456,9 @@ void VpnConnection::reconnectToVpn() {
 
 void VpnConnection::disconnectFromVpn()
 {
+    // User explicitly disconnected — do not reconnect on next wakeup.
+    m_reconnectOnWakeup = false;
+
 #if defined(Q_OS_IOS) || defined(MACOS_NE)
     // iOS/macOS NE use IosController directly; m_vpnProtocol is not set there.
     IosController::Instance()->disconnectVpn();
@@ -488,4 +501,28 @@ void VpnConnection::setConnectionState(Vpn::ConnectionState state) {
 
     m_connectionState = state;
     emit connectionStateChanged(state);
+}
+
+void VpnConnection::onWakeFromSleep()
+{
+#ifdef AMNEZIA_DESKTOP
+    if (!m_reconnectOnWakeup || m_vpnConfiguration.isEmpty() || m_serverIndex < 0) {
+        qDebug() << "VpnConnection::onWakeFromSleep: no saved connection, skipping";
+        return;
+    }
+
+    qDebug() << "VpnConnection::onWakeFromSleep: system woke from sleep, reconnecting VPN";
+
+    // The network stack may not yet be fully ready right after wake. Give it a
+    // moment before attempting to reconnect (2 s is typically enough for the
+    // default route to be restored).
+    QTimer::singleShot(2000, this, [this]() {
+        if (!m_reconnectOnWakeup) {
+            // User disconnected during the 2-second wait.
+            return;
+        }
+        qDebug() << "VpnConnection::onWakeFromSleep: starting reconnect after wake delay";
+        connectToVpn(m_serverIndex, m_savedCredentials, m_savedContainer, m_vpnConfiguration);
+    });
+#endif
 }

@@ -42,6 +42,8 @@ signals:
     // too.
     void networkChanged(QString newBSSID);
     void wakeup();
+    // Fires just before the system goes to sleep
+    void sleeping();
 
 
 private:

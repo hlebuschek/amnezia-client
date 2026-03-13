@@ -152,7 +152,13 @@ void PowerNotificationsListener::sleepWakeupCallBack(void *refParam, io_service_
          * however the system WILL still go to sleep.
          */
 
-        logger.debug() << "System power message: system WILL sleep";
+        logger.debug() << "System power message: system WILL sleep — deactivating VPN tunnel";
+        // Emit sleeping signal so the daemon can cleanly deactivate the VPN
+        // tunnel before the system suspends. This prevents stale tunnel state
+        // on wake (the symptom: VPN looks connected but traffic is blocked).
+        if (listener->m_watcher) {
+            QMetaObject::invokeMethod(listener->m_watcher, "sleeping", Qt::QueuedConnection);
+        }
         IOAllowPowerChange(listener->rootPowerDomain, reinterpret_cast<long>(messageArgument));
         break;
 

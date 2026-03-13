@@ -52,6 +52,18 @@ LocalServer::LocalServer(QObject *parent) : QObject(parent),
     m_networkWatcher.initialize();
     connect(&m_networkWatcher, &NetworkWatcher::networkChanged, &m_ipcServer, &IpcServer::networkChanged);
     connect(&m_networkWatcher, &NetworkWatcher::wakeup, &m_ipcServer, &IpcServer::wakeup);
+
+#ifdef Q_OS_MAC
+    // On sleep: deactivate the WireGuard tunnel cleanly so it is not in a
+    // stale state when the system wakes. Without this the tunnel appears active
+    // in the UI but passes no traffic because the wireguard-go process was
+    // suspended mid-handshake and the routing table was partly cleared.
+    connect(&m_networkWatcher, &NetworkWatcher::sleeping, this, []() {
+        logger.debug() << "System going to sleep — deactivating VPN daemon";
+        MacOSDaemon::instance()->deactivate();
+    });
+#endif
+
     KillSwitch::instance()->init();
 
 #ifdef Q_OS_LINUX

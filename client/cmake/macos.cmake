@@ -23,8 +23,12 @@ set_target_properties(${PROJECT} PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}"
     MACOSX_BUNDLE_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION_TWEAK}"
 )
-set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE INTERNAL "" FORCE)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
+# Build a universal binary so the app runs natively on both Intel (x86_64) and
+# Apple Silicon (arm64) Macs. Rosetta 2 emulation is no longer needed on M1+.
+# NOTE: the bundled wireguard-go executable and any other prebuilt binaries must
+# also be universal (arm64;x86_64) for this to have full effect.
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE INTERNAL "" FORCE)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0)
 
 
 set(HEADERS ${HEADERS}

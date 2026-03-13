@@ -75,6 +75,8 @@ void NetworkWatcher::initialize() {
           &NetworkWatcher::networkChanged);
   connect(m_impl, &NetworkWatcherImpl::wakeup, this,
           &NetworkWatcher::wakeup);
+  connect(m_impl, &NetworkWatcherImpl::sleeping, this,
+          &NetworkWatcher::sleeping);
   m_impl->initialize();
 
   // Enable sleep/wake monitoring for VPN auto-reconnection
