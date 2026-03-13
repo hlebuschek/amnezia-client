@@ -343,6 +343,11 @@ jobs:
         set-env: 'true'
         extra: '--external 7z --base ${{ env.QT_MIRROR }}'
 
+    - name: 'Setup Go (for universal wireguard-go build)'
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: false
 
     - name: 'Get sources'
       uses: actions/checkout@v4
@@ -418,9 +423,15 @@ jobs:
         dir: ${{ runner.temp }}
         setup-python: 'true'
         set-env: 'true'
-        aqtversion: '==3.3.0'       
-        py7zrversion: '==0.22.*'  
-        extra: '--base ${{ env.QT_MIRROR }}' 
+        aqtversion: '==3.3.0'
+        py7zrversion: '==0.22.*'
+        extra: '--base ${{ env.QT_MIRROR }}'
+
+    - name: 'Setup Go (for universal wireguard-go build)'
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: false
 
     - name: 'Get sources'
       uses: actions/checkout@v4

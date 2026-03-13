@@ -58,6 +58,37 @@ echo "Using Qt in $QT_BIN_DIR"
 cmake --version
 clang -v
 
+# ---------------------------------------------------------------------------
+# Build universal (arm64 + x86_64) wireguard-go binary.
+#
+# The binary is the AmneziaWG fork of wireguard-go and is launched at runtime
+# as a child process by the macOS daemon (WireguardUtilsMacos::addInterface).
+# It must be a universal binary so AmneziaVPN runs natively on both Intel and
+# Apple Silicon Macs without Rosetta 2.
+#
+# The script clones https://github.com/amnezia-vpn/amneziawg-go, compiles
+# arm64 and amd64 slices with plain 'go build', and merges them with lipo.
+# The result is placed in $PREBUILT_DEPLOY_DATA_DIR so that the packaging
+# step below picks it up automatically.
+#
+# The step is skipped when:
+#   • SKIP_WIREGUARD_GO_BUILD=1 is set in the environment (use a pre-built
+#     binary from a different source instead), OR
+#   • 'go' is not installed (warns and uses whatever binary is already there).
+# ---------------------------------------------------------------------------
+if [ "${SKIP_WIREGUARD_GO_BUILD:-0}" != "1" ]; then
+    if command -v go &>/dev/null; then
+        echo "Building universal wireguard-go..."
+        bash "$DEPLOY_DIR/build_wireguard_go_macos.sh" "$PREBUILT_DEPLOY_DATA_DIR"
+    else
+        echo "WARNING: 'go' not found — skipping wireguard-go build."
+        echo "         The bundled wireguard-go binary may only support x86_64."
+        echo "         Install Go 1.21+ (brew install go) for a native arm64 build."
+    fi
+else
+    echo "SKIP_WIREGUARD_GO_BUILD=1 — using existing wireguard-go binary."
+fi
+
 # Build App
 echo "Building App..."
 cd "$BUILD_DIR"

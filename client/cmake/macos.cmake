@@ -59,3 +59,58 @@ execute_process(
 )
 message("OSX_SDK_PATH is: ${OSX_SDK_PATH}")
 
+# ---------------------------------------------------------------------------
+# wireguard-go universal binary
+#
+# The daemon launches wireguard-go (an AmneziaWG-fork process) at runtime.
+# We build a universal (arm64 + x86_64) binary via a custom target so that
+# `cmake --build` always has a fresh binary ready before the app is packaged.
+#
+# The Go toolchain is optional at CMake-configure time; the target simply
+# warns when 'go' is absent.  In that case the build_wireguard_go_macos.sh
+# script (called from build_macos.sh or CI) must be run separately.
+#
+# The output is written to the same deploy-prebuilt directory that
+# build_macos.sh reads when copying binaries into the app bundle.
+# ---------------------------------------------------------------------------
+set(WIREGUARD_GO_BUILD_SCRIPT
+    "${CMAKE_SOURCE_DIR}/deploy/build_wireguard_go_macos.sh")
+set(WIREGUARD_GO_OUTPUT_DIR
+    "${CMAKE_SOURCE_DIR}/deploy/data/deploy-prebuilt/macos")
+set(WIREGUARD_GO_OUTPUT
+    "${WIREGUARD_GO_OUTPUT_DIR}/wireguard-go")
+
+find_program(GO_EXECUTABLE go)
+
+if(GO_EXECUTABLE)
+    message(STATUS "Go toolchain found: ${GO_EXECUTABLE} — wireguard-go will be built as part of the build")
+
+    add_custom_command(
+        OUTPUT "${WIREGUARD_GO_OUTPUT}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${WIREGUARD_GO_OUTPUT_DIR}"
+        COMMAND bash "${WIREGUARD_GO_BUILD_SCRIPT}" "${WIREGUARD_GO_OUTPUT_DIR}"
+        COMMENT "Building universal wireguard-go (arm64 + x86_64)"
+        VERBATIM
+    )
+
+    add_custom_target(wireguard_go_universal ALL
+        DEPENDS "${WIREGUARD_GO_OUTPUT}"
+    )
+
+    # Ensure the main app target is built after wireguard-go is ready
+    add_dependencies(${PROJECT} wireguard_go_universal)
+
+    # Copy the universal binary into the app bundle after the app is built
+    add_custom_command(TARGET ${PROJECT} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${WIREGUARD_GO_OUTPUT}"
+            "$<TARGET_BUNDLE_DIR:${PROJECT}>/Contents/MacOS/wireguard-go"
+        COMMENT "Installing universal wireguard-go into app bundle"
+    )
+else()
+    message(WARNING
+        "Go toolchain not found — wireguard-go will NOT be built automatically.\n"
+        "Run 'bash deploy/build_wireguard_go_macos.sh' before packaging, or\n"
+        "set SKIP_WIREGUARD_GO_BUILD=1 and provide a pre-built universal binary.")
+endif()
+
